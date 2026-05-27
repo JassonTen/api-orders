@@ -1,11 +1,9 @@
 package pe.edu.upeu.api_orders.bdd;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -14,15 +12,16 @@ import pe.edu.upeu.api_orders.model.Order;
 
 public class OrdersSteps {
 
-    // 🎯 SOLUCIÓN: Usamos el cliente de pruebas de Spring para que inyecte el puerto dinámico de forma interna
-    @Autowired
-    private TestRestTemplate restTemplate;
+    // 🎯 Captura el puerto aleatorio real que Spring Boot levantó en Jenkins
+    @LocalServerPort
+    private int port;
 
+    private RestTemplate restTemplate = new RestTemplate();
     private ResponseEntity<Order> response;
 
     @Given("the orders API is up")
     public void the_orders_api_is_up() {
-        assertNotNull(restTemplate);
+        // Pasa directo
     }
 
     @When("I send a POST request to {string} with name {string} and price {double}")
@@ -31,9 +30,10 @@ public class OrdersSteps {
         order.setCustomer(name); 
         order.setAmount(price);
         
-        // 🎯 SOLUCIÓN: Usamos solo el 'path' relativo (ej: "/api/orders"). 
-        // TestRestTemplate le añade automáticamente el "http://localhost:PUERTO_ALEATORIO" sin chocar con Jenkins.
-        response = restTemplate.postForEntity(path, order, Order.class);
+        // 🎯 Construimos la URL usando el puerto dinámico real (ej: http://localhost:54321/api/orders)
+        // Esto evita usar la clase TestRestTemplate y salta el puerto de Jenkins de raíz
+        String url = "http://localhost:" + port + path;
+        response = restTemplate.postForEntity(url, order, Order.class);
     }
 
     @Then("the response status should be {int}")
