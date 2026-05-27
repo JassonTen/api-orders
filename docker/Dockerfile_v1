@@ -1,0 +1,92 @@
+// 🚀 Jenkinsfile - Pipeline de CI/CD para aplicación api-orders
+// 📦 Diseñado para Jasson Andy Laureano Tenazoa - Estudiante de Ingeniería de Sistemas UPeU
+
+pipeline {
+    agent any
+
+    // 🛠️ Herramientas configuradas globalmente en tu servidor de Jenkins
+    tools {
+        maven 'MAVEN_HOME'
+    }
+
+    // 🔧 Variables de entorno asignadas para estandarizar el proceso
+    environment {
+        PROJECT_NAME = 'api-orders'
+        CONTAINER_NAME = 'api_orders_app'
+        PORT = '8080'
+    }
+
+    stages {
+        // 📥 Etapa 1: Limpieza del espacio de trabajo y descarga del código fresco
+        stage('Checkout') {
+            steps {
+                echo '🔄 === INICIO: LIMPIEZA Y DESCARGA DEL CÓDIGO ==='
+                cleanWs()
+                checkout scm
+            }
+        }
+
+        // 🏗️ Etapa 2: Compilación y Ejecución Absoluta de Tests (JUnit + Cucumber + JaCoCo)
+        stage('Build & Test') {
+            steps {
+                echo '🔨 === INICIO: COMPILACIÓN Y EVALUACIÓN DE COBERTURA ==='
+                // No saltamos las pruebas porque necesitamos alimentar la métrica del 80% en SonarQube
+                sh 'mvn clean verify'
+            }
+        }
+
+        // 📊 Etapa 3: Envío de Métricas y Análisis Estático a SonarQube
+        stage('Sonar Analysis') {
+            steps {
+                echo '📊 === INICIO: ANÁLISIS ESTÁTICO DE CALIDAD EN SONARQUBE ==='
+                withSonarQubeEnv('sonarqube') {
+                    sh """
+                        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar \
+                        -Dsonar.projectKey=${PROJECT_NAME} \
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    """
+                }
+            }
+        }
+
+        // 🎯 Etapa 4: Control de calidad obligatorio (Espera la respuesta del Webhook de Sonar)
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    echo '🎯 === ESPERANDO CONFIRMACIÓN DEL QUALITY GATE ==='
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // 🚀 Etapa 5: Despliegue Automatizado utilizando Docker Compose
+        stage('Deploy Container') {
+            steps {
+                echo '🚀 === INICIO: ORQUESTACIÓN Y DESPLIEGUE CON DOCKER COMPOSE ==='
+                script {
+                    echo '1️⃣ Limpiando despliegues anteriores idénticos si existen...'
+                    try {
+                        sh "docker-compose down -v --remove-orphans"
+                    } catch (e) {
+                        echo "⚠️ Sin contenedores ni redes previas activos."
+                    }
+
+                    echo '2️⃣ Construyendo imágenes y levantando el entorno virtualizado...'
+                    sh "docker-compose up -d --build"
+                    
+                    echo "✅ ¡Éxito! Aplicación corriendo activamente en http://localhost:${PORT}"
+                }
+            }
+        }
+    }
+
+    // 📝 Bloque de notificaciones y resumen final en consola
+    post {
+        success {
+            echo '🎉 ✓ ¡Excelente Jasson! El pipeline de api-orders se completó al 100% en verde.'
+        }
+        failure {
+            echo '💥 ✗ El pipeline falló en alguna de las etapas. Revisa el Log de la consola arriba.'
+        }
+    }
+}

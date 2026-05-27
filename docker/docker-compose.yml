@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api_orders_app
+    ports:
+      - '8080:8080'
+    restart: unless-stopped
+    networks:
+      - orders_net
+
+networks:
+  orders_net:
+    name: api_orders_network
