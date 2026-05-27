@@ -59,22 +59,25 @@ pipeline {
             }
         }
 
-        // 🚀 Etapa 5: Despliegue Automatizado utilizando Docker Compose
+        // 🚀 Etapa 5: Despliegue Directo e Infalible con Docker Nativo
         stage('Deploy Container') {
             steps {
-                echo '🚀 === INICIO: ORQUESTACIÓN Y DESPLIEGUE CON DOCKER COMPOSE ==='
+                echo '🚀 === INICIO: DESPLIEGUE DIRECTO CON DOCKER ==='
                 script {
-                    echo '1️⃣ Limpiando despliegues anteriores idénticos si existen...'
+                    echo '1️⃣ Eliminando contenedor previo si existe para liberar el puerto...'
                     try {
-                        sh "docker-compose down -v --remove-orphans"
+                        sh "docker stop ${CONTAINER_NAME} && docker rm ${CONTAINER_NAME}"
                     } catch (e) {
-                        echo "⚠️ Sin contenedores ni redes previas activos."
+                        echo "⚠️ Sin contenedores activos previos."
                     }
 
-                    echo '2️⃣ Construyendo imágenes y levantando el entorno virtualizado...'
-                    sh "docker-compose up -d --build"
+                    echo '2️⃣ Construyendo la imagen de la API desde el Dockerfile...'
+                    sh "docker build -t ${PROJECT_NAME}:latest ."
+
+                    echo '3️⃣ Levantando el contenedor en el puerto expuesto...'
+                    sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT}:${PORT} ${PROJECT_NAME}:latest"
                     
-                    echo "✅ ¡Éxito! Aplicación corriendo activamente en http://localhost:${PORT}"
+                    echo "✅ ¡Éxito absoluto! Aplicación corriendo en http://localhost:${PORT}"
                 }
             }
         }
