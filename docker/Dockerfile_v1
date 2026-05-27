@@ -59,7 +59,7 @@ pipeline {
             }
         }
 
-        // 🚀 Etapa 5: Despliegue Directo e Infalible con Docker Nativo
+        // 🚀 Etapa 5: Despliegue Inteligente con Docker (Raíz o Carpeta Docker)
         stage('Deploy Container') {
             steps {
                 echo '🚀 === INICIO: DESPLIEGUE DIRECTO CON DOCKER ==='
@@ -71,8 +71,19 @@ pipeline {
                         echo "⚠️ Sin contenedores activos previos."
                     }
 
-                    echo '2️⃣ Construyendo la imagen de la API desde el Dockerfile...'
-                    sh "docker build -t ${PROJECT_NAME}:latest ."
+                    // 🎯 DETECCIÓN DE RUTA: Buscamos si el Dockerfile está suelto o en la carpeta docker
+                    if (fileExists('Dockerfile')) {
+                        echo '📁 Dockerfile detectado en la RAÍZ principal.'
+                        echo '2️⃣ Construyendo la imagen de la API...'
+                        sh "docker build -t ${PROJECT_NAME}:latest ."
+                    } else if (fileExists('docker/Dockerfile')) {
+                        echo '📁 Dockerfile detectado dentro de la carpeta DOCKER.'
+                        echo '2️⃣ Construyendo la imagen desde la subcarpeta...'
+                        // Usamos -f para decirle a docker exactamente dónde está el archivo, pero manteniendo el contexto
+                        sh "docker build -f docker/Dockerfile -t ${PROJECT_NAME}:latest ."
+                    } else {
+                        error "❌ ERROR CRÍTICO: No se encontró el archivo Dockerfile en ninguna ruta esperada."
+                    }
 
                     echo '3️⃣ Levantando el contenedor en el puerto expuesto...'
                     sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT}:${PORT} ${PROJECT_NAME}:latest"
